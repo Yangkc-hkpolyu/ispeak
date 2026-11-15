@@ -30,3 +30,6 @@ output/
 Thumbs.db
 .vscode/
 .idea/
+
+# Python 3.12 environment created for this project
+.venv312/

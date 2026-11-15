@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from .avatar import AvatarRenderer
 from .bank import SOURCES, catalog
 from .config import ROOT, load_settings
+from .consult import consult_router
 from .engine import SpeakingEngine
 from .errors import public_error_message
 from .media import MediaManager
@@ -60,6 +61,7 @@ def create_app(settings=None, provider=None, speech=None, pronunciation=None, cl
     app.state.live = live
     app.state.voice_coach = voice_coach
     app.include_router(live_router(live, store, engine))
+    app.include_router(consult_router(provider, settings))
 
     @app.websocket("/api/speaking/sessions/{session_id}/stt")
     async def stt(websocket: WebSocket, session_id: str, question_id: str):

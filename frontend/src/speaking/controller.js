@@ -4,15 +4,22 @@ import { api, post } from './api'
 import QuestionLibrary from './QuestionLibrary.vue'
 import LayeredReport from './LayeredReport.vue'
 import VoiceCoach from './VoiceCoach.vue'
+import PrepChat from './PrepChat.vue'
 
 const recorder = new VoiceRecorder();
+function savedVideoDelay() {
+  try {
+    const value = localStorage.getItem('polyspeak_video_delay_ms');
+    return value === null ? 180 : Math.max(0, Math.min(1000, Number(value) || 0));
+  } catch (_) { return 180; }
+}
 const stages = { part1: 'Part 1 · Introduction & interview', part2: 'Part 2 · Individual long turn', rounding: 'Part 2 · Rounding off', part3: 'Part 3 · Two-way discussion', repeat: 'Listen and Repeat', interview: 'Take an Interview' };
 const sections = { ielts: [{ value: 'full', label: 'Full test · Parts 1–3' }, { value: 'part1', label: 'Part 1 · Introduction & interview' }, { value: 'part2', label: 'Part 2 · Individual long turn' }, { value: 'part3', label: 'Part 3 · Two-way discussion' }], toefl: [{ value: 'full', label: 'Full test · 7 repetitions + 4 interview questions' }, { value: 'repeat', label: 'Listen and Repeat' }, { value: 'interview', label: 'Take an Interview' }] };
 
 
 export default {
   name: 'SpeakingApp',
-  components: { QuestionLibrary, LayeredReport, VoiceCoach },
+  components: { QuestionLibrary, LayeredReport, VoiceCoach, PrepChat },
   data: () => ({
     view: 'practice', status: {}, library: { sets: [], sources: [], format_sources: [] }, history: [], session: null,
     form: { exam: 'ielts', set_id: 'ielts-learning', mode: 'mock', section: 'full', candidate_name: '' },
@@ -20,7 +27,8 @@ export default {
     recording: false, startingRecording: false, transcribing: false, recordStarted: 0, recordDeadline: null, recordTimer: null,
     mediaBusy: false, mediaToken: 0, mediaProgress: 0, mediaLabel: '', videoVisible: false, playBlocked: false,
     playing: false, mediaQuestionId: null, mediaFailed: false, avatarCaption: 'Ready when you are.',
-    liveConnected: false, liveConnecting: false, autoRecordQuestionId: null,
+    liveConnected: false, liveConnecting: false, autoRecordQuestionId: null, videoDelayMs: savedVideoDelay(),
+    videoDelaySupported: typeof HTMLVideoElement !== 'undefined' && typeof HTMLVideoElement.prototype.requestVideoFrameCallback === 'function',
     now: Date.now(), serverOffset: 0, ticker: null, toastMessage: '', toastTimer: null, settingsOpen: false, testingConnection: false,
     showTranscript: false, dimensionName: { coherence: 'Coherence & cohesion', vocabulary: 'Vocabulary', grammar: 'Grammar', task_response: 'Task response & development' },
   }),
@@ -56,6 +64,10 @@ export default {
     canReplay() { return !!this.currentQuestion && !this.busy && !this.recording && !this.transcribing && !this.startingRecording && !this.mediaBusy && !this.playing && (!this.isMock || this.currentQuestion.phase === 'listening'); },
   },
   watch: {
+    videoDelayMs(value) {
+      try { localStorage.setItem('polyspeak_video_delay_ms', String(value)); } catch (_) {}
+      this.live?.setPlayoutDelay(value);
+    },
     view(value) { if (value !== 'practice') this.disconnectAvatar(); else this.$nextTick(this.connectAvatar); },
     'form.set_id'() { if (!this.sections.some(x => x.value === this.form.section)) this.form.section = 'full'; },
     videoVisible(value) { const idle = this.$refs.idleVideo; if (!idle) return; if (value) idle.pause(); else idle.play().catch(() => {}); },
@@ -79,7 +91,7 @@ export default {
       try {
         if (!this.live || this.live.video !== video || this.live.closed) {
           if (this.live) await this.live.close();
-          this.live = new LiveAvatar(video, this.liveEvent, { canvas: this.$refs.avatarCanvas });
+          this.live = new LiveAvatar(video, this.liveEvent, { canvas: this.$refs.avatarCanvas, playoutDelayMs: this.videoDelayMs });
         }
         await this.live.connect();
       } catch (error) { this.liveConnected = false; this.videoVisible = false; this.avatarCaption = error.message; }

@@ -120,6 +120,7 @@ export class LiveAvatar {
       })
     })
   }
+  setPlayoutDelay(delayMs) { this.playout?.setDelay(delayMs) }
   async interrupt() {
     if (!this.id || this.closed || !this.currentJob) return
     if (this.interrupting) return this.interrupting

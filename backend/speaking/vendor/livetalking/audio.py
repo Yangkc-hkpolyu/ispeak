@@ -113,10 +113,12 @@ def _mel_spectrogram_module_gpu(device):
             f_min=hp.fmin,
             f_max=hp.fmax,
             power=1.0,
-            norm=None,
+            # Match librosa.filters.mel's Slaney area normalization.
+            norm="slaney",
             mel_scale="slaney",
             center=True,
-            pad_mode="reflect",
+            # Match librosa.stft's default zero padding at the waveform edges.
+            pad_mode="constant",
         )
         _mel_gpu_modules[key] = mel.to(device)
     return _mel_gpu_modules[key]

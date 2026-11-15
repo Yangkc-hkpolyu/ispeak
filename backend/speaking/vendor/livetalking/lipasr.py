@@ -32,7 +32,7 @@ from . import audio
 class LipASR(BaseASR):
 
     def _melspectrogram_with_optional_gpu(self, inputs: np.ndarray) -> np.ndarray:
-        use_gpu = os.environ.get("LT_MEL_USE_GPU", "1").lower() not in (
+        use_gpu = os.environ.get("LT_MEL_USE_GPU", "0").lower() not in (
             "0",
             "false",
             "no",

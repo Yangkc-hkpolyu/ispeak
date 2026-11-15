@@ -4,12 +4,26 @@ export class VideoPlayout {
   constructor(video, canvas, delayMs = 180, onPresent = () => {}) {
     this.video = video
     this.canvas = canvas
-    this.delayMs = Math.min(500, Math.max(0, Number(delayMs) || 0))
+    this.delayMs = Math.min(1000, Math.max(0, Number(delayMs) || 0))
     this.onPresent = onPresent
     this.queue = []
     this.pool = []
     this.generation = 0
     this.limit = Math.ceil(this.delayMs / 40) + 3
+  }
+
+  setDelay(delayMs) {
+    const delay = Math.min(1000, Math.max(0, Number(delayMs) || 0))
+    if (delay === this.delayMs) return
+    this.delayMs = delay
+    this.limit = Math.ceil(delay / 40) + 3
+    if (!delay) { this.stop(); return }
+    // Rebase frames already queued on the same decoded presentation clock.
+    // Do not let old due times create an additional unbounded delay.
+    for (const entry of this.queue) entry.due = entry.sourceTime + delay
+    while (this.queue.length > this.limit) this.pool.push(this.queue.shift().frame)
+    this.pool.length = Math.min(this.pool.length, Math.max(0, this.limit - this.queue.length))
+    if (!this.running && this.video.srcObject && !this.video.paused) this.start()
   }
 
   start() {
@@ -28,7 +42,8 @@ export class VideoPlayout {
         frame.height = this.video.videoHeight
       }
       frame.getContext('2d', { alpha: false }).drawImage(this.video, 0, 0)
-      this.queue.push({ frame, due: metadata.expectedDisplayTime + this.delayMs, metadata })
+      const sourceTime = Number.isFinite(metadata.expectedDisplayTime) ? metadata.expectedDisplayTime : now
+      this.queue.push({ frame, sourceTime, due: sourceTime + this.delayMs, metadata })
       this.frameRequest = this.video.requestVideoFrameCallback(capture)
     }
     const present = now => {

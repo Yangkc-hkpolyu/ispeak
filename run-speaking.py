@@ -1,5 +1,5 @@
 import os
-os.environ.setdefault("LT_MEL_USE_GPU", "0")  # Original CPU mel path; CUDA Wav2Lip stays enabled.
+os.environ.setdefault("LT_MEL_USE_GPU", "0")  # Use the stable CPU mel path; CUDA Wav2Lip remains enabled.
 import uvicorn
 from backend.speaking.config import load_settings
 

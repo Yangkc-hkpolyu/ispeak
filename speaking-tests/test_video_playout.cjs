@@ -49,6 +49,29 @@ async function run() {
   const pending = player.start(); player.stop(); assert.equal(await pending, false)
   assert.equal(await new Playout({}, canvas).start(), false, 'Unsupported browsers retain native playback')
   assert.equal(await new Playout(video, canvas, 0).start(), false)
+  // A device may have substantially more output delay than the default.
+  // Changing the value must also reschedule frames already waiting to display.
+  const samples = [], adjustable = new Playout(video, canvas, 180, (now, m) => samples.push([now, m.rtpTimestamp]))
+  const initial = adjustable.start(); capture(0); present(180); await initial
+  capture(40); adjustable.setDelay(400)
+  present(439); assert.equal(samples.length, 1, 'Increased compensation must apply to queued frames')
+  present(440); assert.deepEqual(samples.at(-1), [440, 40])
+  for (let time = 80; time < 300080; time += 40) {
+    capture(time); present(time + 400 + (time % 3))
+    const [shownAt, sourceAt] = samples.at(-1)
+    assert(shownAt - sourceAt >= 400 && shownAt - sourceAt <= 402, 'Delay must stay bounded over a long session')
+  }
+  adjustable.setDelay(0)
+  assert.equal(adjustable.running, false)
+  assert.equal(canvas.style.visibility, 'hidden', 'Zero returns to native video')
+  video.srcObject = {}; video.paused = false
+  adjustable.setDelay(1000)
+  capture(400000); present(401000)
+  assert.equal(adjustable.delayMs, 1000)
+  assert.equal(canvas.style.visibility, 'visible', 'Compensation can be re-enabled')
+  adjustable.setDelay(5000)
+  assert.equal(adjustable.delayMs, 1000, 'Keep the buffer bounded')
+  adjustable.stop()
   console.log('Video playout timing, queue bounds, full resolution and lifecycle tests passed')
 }
 run().catch(error => { console.error(error); process.exitCode = 1 })

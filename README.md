@@ -1,111 +1,63 @@
-# PolySpeak — IELTS / TOEFL 口语练习
+# PolySpeak — IELTS / TOEFL speaking practice
 
-面向课程小组的口语模考与互动陪练平台。支持语音输入、数字人语音回答、动态追问、逐题评价和报告导出。
+PolySpeak is a domain-specific speaking-practice prototype with a cloud examiner, a talking avatar, a text-only preparation chat, practice reports, and optional local fine-tuned advice. It is not an official IELTS or TOEFL examiner.
 
-> **已知问题（2026-11-14）：数字人的音画不同步仍未解决，有时不同步非常严重。**
-> 用户在最新画面缓冲改动后仍确认存在此问题，主要表现为嘴先动、声音后出。
-> 当前提交是排查过程中的阶段性版本，不是已修复版本；短时测试中的改善不能代表实际使用效果。
-> 详细记录见 [实时播放说明](docs/SPEAKING_REALTIME.md) 和 [测试记录](docs/SPEAKING_TESTING.md)。
+## Group members — complete before submission
 
-网页界面、题库标签、服务提示和 AI 反馈报告统一使用英文；原始回答与引用保持原样。
+| English name | Student ID | Contribution |
+| --- | --- | --- |
+| **Add each group member** | **Add student ID** | **Describe contribution** |
 
-- 数字人：人物视频帧 + 本地 Wav2Lip 口型模型，LiveTalking + WebRTC 持续传输音视频。
-- 对话与反馈：Qwen 文本 API；语音识别为 Qwen 实时 API；英文发声使用与 PolyInterview 一致的 EdgeTTS `en-US-JennyNeural`。
-- 模式：IELTS 模考、TOEFL 2026 模考，以及动态追问陪练。
-- 报告：逐题特征、语言维度、原话修订、录音复听、JSON 导出和打印。
+Add a row for every member. Submit this source ZIP and a separate presentation slide file as required by the course.
 
-这是公开仓库，可以直接分享链接、克隆代码或下载源码，无需添加协作者。API Key、录音、历史记录和本机环境不在 Git 中。
-数字人口型模型和人物素材可从 [v3.0.0 Release](https://github.com/Yangkc-hkpolyu/polyspeak/releases/tag/v3.0.0) 直接下载。
+## Features
 
-## 第一次启动（Windows）
+- Ask the tutor provides text-only, multi-turn preparation chat using the configured hosted Qwen model. Chat content is sent to that provider; refresh clears the conversation.
+- Guided practice and mock tests use Qwen real-time speech recognition, hosted examiner responses, EdgeTTS, a local Wav2Lip checkpoint and WebRTC avatar media.
+- The report estimates pace and pauses from recorded audio energy and ASR word count. A separate Qwen2.5-1.5B LoRA adapter generates optional advice from numeric metrics only, in a CPU subprocess. It is not a pronunciation assessment or official score.
+- The Settings dialog provides a 0–1000 ms avatar video-delay control. Audio/video synchronization has not been independently verified after this adjustment and can still be noticeably wrong; a real listening test is necessary.
 
-准备 Python 3.11 或 3.12、Git 和网络连接。网页已构建，不必安装 Node；本机启动不需要 Docker。
+## Run on Windows
+
+The supplied coursework ZIP contains local model weights and avatar assets, but deliberately excludes Python virtual environments, installed libraries, private keys and user recordings. A Git clone or GitHub source ZIP excludes the large runtime model and avatar files. The trained LoRA adapter is included under `experiments/voice-coach/adapter`.
+
+For a Git clone, download `COMP4431_PolySpeak_model_assets.zip` from the [v3.0.0 release](https://github.com/Yangkc-hkpolyu/polyspeak/releases/tag/v3.0.0). After installing the dependencies below, run this command with the actual downloaded archive path:
 
 ```powershell
-git clone https://github.com/Yangkc-hkpolyu/polyspeak.git
-cd polyspeak
+.\.venv\Scripts\python.exe -s scripts/install_speaking_assets.py --archive "E:\Downloads\COMP4431_PolySpeak_model_assets.zip"
+```
+
+The installer checks the archive and model checksums before extracting the avatar assets. Skip this step when using the coursework ZIP with its existing model files.
+
+Install dependencies before launching. The local model's isolated inference packages must also be installed. Use Windows x64, Python 3.12, a compatible NVIDIA GPU/driver and internet access. A microphone is required for spoken practice.
+
+Open PowerShell inside the extracted `PolySpeak` directory. Check `python --version` is 3.12, or use the full path of a Python 3.12 executable in place of `python` below.
+
+```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -s -m pip install -r requirements-speaking.txt
+.\.venv\Scripts\python.exe -m pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cu126
+.\.venv\Scripts\python.exe -m pip install -r requirements-speaking.txt
+.\.venv\Scripts\python.exe -s scripts/setup_voice_coach.py
+.\.venv\Scripts\python.exe -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 Copy-Item speaking.env.example speaking.env
 ```
 
-打开 `speaking.env`，填写自己的 `DASHSCOPE_API_KEY`。其余模型配置可先用默认值。
-从上面的 Release 下载 `COMP4431_PolySpeak_model_assets.zip`。不用手动解压，执行下面的命令并替换 ZIP 的实际路径：
+The CUDA 12.6 wheel needs a compatible NVIDIA driver. Consult https://pytorch.org/get-started/previous-versions/ if another build is necessary. The default local-model setup downloads the pinned Qwen base model and installs the included adapter. If using the coursework ZIP with its existing base weights, add `--base-dir speaking-models/voice-coach/base` to the setup command to avoid downloading those weights again. Internet access may still be needed for package installation. The optional `torchaudio` dependency is not required for the default CPU mel path. CUDA remains enabled for Wav2Lip when available.
+
+Edit `speaking.env` and enter your own DashScope API key with the matching region and model access. The template uses the international endpoint and documents the Beijing endpoint. Requests may use account quota.
 
 ```powershell
-.\.venv\Scripts\python.exe -s scripts/download_speaking_model.py --archive "E:\Downloads\COMP4431_PolySpeak_model_assets.zip"
 .\start-speaking.bat
 ```
 
-安装程序校验 SHA-256，再把模型和人物帧放入正确目录。若已安装 GitHub CLI 并通过 `gh auth login` 登录，可不带 `--archive` 运行安装程序，由它下载 Release；浏览器手动下载无需登录。
+Open http://127.0.0.1:8008/ and permit the microphone. In PyCharm, select `.venv\Scripts\python.exe` as the project interpreter and run `run-speaking.py` from the project directory. The compiled frontend is included.
 
-浏览器打开 http://127.0.0.1:8008/，允许麦克风权限。首次数字人连接需要加载和预热口型模型。
-建议使用 NVIDIA GPU；纯 CPU 能否达到实时速度取决于硬件。根据本机驱动安装相应的 PyTorch CUDA 构建。
+## Fine-tuning and evaluation
 
-## macOS
+The local LoRA experiment used 608 synthetic, rule-generated training examples over two epochs. In 38 synthetic tests, heuristics flagged 27 base outputs and 3 adapter outputs; a separate runtime filter rejected the latter three. The examples share a generator, training was revised after earlier observations, and these flags are not independent real-world accuracy rates. Human evaluation on diverse real recordings remains needed. See `experiments/voice-coach/README.md`, `evaluation_v2.json`, and `docs/SPEAKING_VOICE_COACH.md`.
 
-```sh
-git clone https://github.com/Yangkc-hkpolyu/polyspeak.git
-cd polyspeak
-python3.11 -m venv .venv
-.venv/bin/python -s -m pip install -r requirements-speaking.txt
-cp speaking.env.example speaking.env
-# 编辑 speaking.env 填写 API Key，并从 Release 下载模型素材 ZIP
-.venv/bin/python -s scripts/download_speaking_model.py --archive ~/Downloads/COMP4431_PolySpeak_model_assets.zip
-sh start-speaking.sh
-```
+The current setup was automatically tested and a short cloud chat was verified. That does not prove accurate speech recognition, natural lip synchronization, or compatibility on a different machine. Review the recorded audio/video sync limitation above and test the demo on the presentation device.
 
-提供 MPS/CPU 选择逻辑，但 Mac 真机的完整运行与速度尚未验证。已验证环境是 Windows + NVIDIA GPU。
+## Third-party components
 
-## 练习与资料
-
-选择 IELTS 或 TOEFL、模考或陪练，再选择题组。模考按题目自动录音和提交；陪练可以检查转写或直接输入文字。
-“课堂快速展示”使用缩短计时，不能视为正式考试时长。AI 反馈是练习建议，不是官方考试成绩。
-
-题库含 282 道带来源标记的机构题库或回忆题，另有 6 套原创模拟题，见 [题库说明](docs/SPEAKING_QUESTION_BANK.md)。
-官方资料 PDF 不在 Git 中，需要时运行：
-
-```powershell
-.\.venv\Scripts\python.exe -s scripts/download_speaking_sources.py
-```
-
-## 能力和限制
-
-- 已选择性接入可选的本地 LoRA 语音建议模块：完成练习后，在录音下点击 **Review pace and pauses**。本机已安装并验证提供的微调权重；仓库已包含 4.37 MB 的微调适配器，其他电脑运行 `.\.venv\Scripts\python.exe -s scripts/setup_voice_coach.py` 即可安装依赖并下载官方基础模型。原有云端对话、语音和数字人继续使用当前实现。安装与使用见 [微调模块说明](docs/SPEAKING_VOICE_COACH.md)。
-- 负责考官对话的主模型尚未微调，默认调用 `qwen-plus-latest`。
-- Azure 发音评测可选。配置 `AZURE_SPEECH_KEY` 和 `AZURE_REGION` 后才能取得实际音频评测；未配置时显示未评估。
-- 不采集考生视频，目光、表情、姿态等指标保持未评估。
-- 实时视频已验证本机连接。公网部署仍需 STUN/TURN、HTTPS 和媒体网络配置；`deploy/speaking/` 是未验证的部署骨架。
-- 语音与文本 API 会使用填写该 Key 的账号额度。
-
-## 开发与测试
-
-前端在 `frontend/src/speaking/`，后端在 `backend/speaking/`。前端修改后重建：
-
-```sh
-cd frontend
-npm ci
-npm run build
-```
-
-从仓库根目录运行协议检查：
-
-```powershell
-.\.venv\Scripts\python.exe -s -m pytest speaking-tests -q
-```
-
-`port_speaking_realtime.py`、`prepare_speaking_avatar.py` 和 `prepare_exam_room.py` 是维护者重建素材的工具，需要原项目文件；使用 Release 素材运行本平台不需要执行它们。
-
-架构和移植范围见 [实时交互说明](docs/SPEAKING_REALTIME.md)，既有验证见 [测试记录](docs/SPEAKING_TESTING.md)。
-仓库保留已构建网页；没有复制原面试平台的招聘、认证和管理系统。
-
-## 来源与课程提交
-
-本项目基于用户提供的 PolyInterview 代码及 LiveTalking/Wav2Lip 方案，保留第三方来源与许可。人物素材、权重和第三方代码各自适用原有条款，见 [来源说明](THIRD_PARTY_SPEAKING.md)。
-
-提交前请填写组员信息，并按课程要求准备 PPT、演示和代码包：
-
-| Student ID | English Name | Contribution |
-|---|---|---|
-| 待填写 | 待填写 | 待填写 |
-| 待填写 | 待填写 | 待填写 |
+The project adapts user-provided PolyInterview, LiveTalking and Wav2Lip materials and includes the Qwen base model and LoRA experiment. Sources, contributor attribution and license notices are in `THIRD_PARTY_SPEAKING.md`, `experiments/voice-coach/PROVENANCE.json` and the model license. The upstream open Wav2Lip version is for personal, research and non-commercial use.
