@@ -41,12 +41,14 @@ export class LiveAvatar {
     // renderer later than the video renderer on the first utterance.
     this.tracks = new Map()
     pc.ontrack = event => {
+      if (this.closed) { event.track.stop(); return }
       this.tracks.set(event.track.kind, event.track)
       if (!this.tracks.has('audio') || !this.tracks.has('video')) return
       const tracks = [this.tracks.get('video'), this.tracks.get('audio')]
       if (tracks.every(track => this.video.srcObject?.getTracks().includes(track))) return
       this.playout?.stop()
-      this.video.srcObject = new MediaStream(tracks)
+      this.stream = new MediaStream(tracks)
+      this.video.srcObject = this.stream
       this.play().catch(error => {
         if (!this.closed && error.name === 'NotAllowedError') this.state({ type: 'playback.blocked' })
       })
@@ -65,8 +67,10 @@ export class LiveAvatar {
       pc.addEventListener('icegatheringstatechange', listener)
       listener()
     })
+    if (this.closed) throw new Error('The avatar connection is closed.')
     const answer = await post('/api/speaking/live/offer', { type: 'offer', sdp: pc.localDescription.sdp })
     this.id = answer.live_id
+    if (this.closed) { await this.close(); throw new Error('The avatar connection is closed.') }
     await pc.setRemoteDescription({ type: answer.type, sdp: answer.sdp })
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('The live avatar connection timed out. Check your network and try again.')), 20000)
@@ -81,6 +85,7 @@ export class LiveAvatar {
       pc.addEventListener('connectionstatechange', ready)
       ready()
     })
+    if (this.closed) throw new Error('The avatar connection is closed.')
     this.state({ type: 'connection.ready' })
   }
   event(event) {
@@ -111,6 +116,7 @@ export class LiveAvatar {
     await this.interrupting
     await this.play()
     const job = await create(this.id)
+    if (this.closed) throw new Error('The avatar connection is closed.')
     this.currentJob = job.id
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => { this.jobs.delete(job.id); reject(new Error('Live speech timed out. Please try again.')) }, 120000)
@@ -134,8 +140,8 @@ export class LiveAvatar {
     for (const waiter of this.jobs.values()) waiter.reject(new Error('The avatar connection is closed.'))
     this.jobs.clear()
     this.pc?.close()
-    this.video.srcObject?.getTracks().forEach(track => track.stop())
-    this.video.srcObject = null
+    this.stream?.getTracks().forEach(track => track.stop())
+    if (this.video.srcObject === this.stream) this.video.srcObject = null
     if (this.id) await api(`/api/speaking/live/${this.id}`, { method: 'DELETE' }).catch(() => {})
     this.id = null
   }

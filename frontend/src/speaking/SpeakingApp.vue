@@ -7,7 +7,7 @@
     </header>
 
     <template v-if="view==='practice'">
-      <section class="page-heading"><div><h1>{{session && session.report ? "Your feedback" : "Speaking practice"}}</h1></div><span class="format-chip">IELTS · TOEFL</span></section>
+      <section class="page-heading"><div><h1>{{session && session.report ? "Your feedback" : "Speaking practice"}}</h1></div><button v-if="session" id="exitPracticeButton" class="button subtle" @click="exitPractice">{{session.report ? 'Back to home' : 'Exit practice'}}</button><span v-else class="format-chip">IELTS · TOEFL</span></section>
       <main class="workspace" :class="{'session-active':session, 'session-complete':session && session.report}">
         <aside class="setup-panel card">
           <template v-if="!session">
@@ -31,7 +31,7 @@
             <details class="session-details"><summary>Session outline</summary><ol class="stage-list"><li v-for="stage in sessionStages" :key="stage.value" :class="{current:currentQuestion&&stage.includes.includes(currentQuestion.stage)}"><i></i><div><strong>{{stage.title}}</strong><small>{{stage.description}}</small></div></li></ol></details>
             <div class="progress-heading"><span>Questions completed</span><strong>{{session.completed_questions}} / {{session.total_questions}}</strong></div><div class="progress-track"><i :style="{width:progress+'%'}"></i></div>
 
-            <button class="button subtle full-width" :disabled="busy||recording||transcribing||startingRecording" @click="resetPractice">New practice</button>
+            <button class="button subtle full-width" @click="exitPractice">Back to home</button>
             <button v-if="session.turns.length&&!session.report" class="text-button full-width" :disabled="busy||recording||transcribing||startingRecording" @click="finishSession">{{session.report_error?'Retry feedback':'Finish early and review'}}</button>
           </template>
 
@@ -84,7 +84,7 @@
     <main v-if="view==='history'" class="history-page"><div class="page-heading"><div><h1>Practice history</h1><p>Your latest 30 practice sessions, stored on this computer.</p></div></div><div v-if="!history.length" class="card welcome"><h3>No practice sessions yet.</h3><p>Complete your first answer to start tracking your progress.</p><button class="button primary" @click="view='practice'">Start practising</button></div><button v-for="item in history" :key="item.id" class="card history-item" @click="restore(item.id)"><span class="source-tag">{{item.exam.toUpperCase()}}</span><div><strong>{{item.title}}</strong><small>{{dateLabel(item.created_at)}} · {{item.answered}} answers</small></div><span>{{item.status==='completed'?'View feedback':'Continue practice'}} ↗</span></button></main>
 
     <footer class="page-footer"><span>ispeak</span><span>Unofficial exam practice</span></footer>
-    <div v-if="busy" class="busy-overlay" role="status"><div class="spinner"></div><h3>{{busyLabel}}</h3><p>Please wait. Your answers are saved on this computer.</p></div>
+    <div v-if="busy" class="busy-overlay" role="status"><div class="spinner"></div><h3>{{busyLabel}}</h3><p>Please wait. Your answers are saved on this computer.</p><button v-if="session" class="button subtle" @click="exitPractice">Exit practice</button></div>
     <div v-if="toastMessage" class="toast" role="status">{{toastMessage}}</div>
     <div v-if="settingsOpen" class="modal-backdrop" @click.self="settingsOpen=false"><section class="settings-modal card" role="dialog" aria-modal="true" aria-label="Service status"><div><h2>Service status</h2><button class="text-button" @click="settingsOpen=false">Close ×</button></div><dl><dt>Conversation model</dt><dd>{{status.chat_model}}</dd><dt>Speech recognition</dt><dd>{{status.asr_model}}</dd><dt>Avatar</dt><dd>{{status.avatar_available?'Nora · Lip-sync model installed':'Model not installed'}}</dd><dt>Pronunciation assessment</dt><dd>{{status.pronunciation_configured?'Azure credentials configured':'Azure setup required; pronunciation scores unavailable'}}</dd><dt>Examiner fine-tuning</dt><dd>The examiner uses the cloud conversation model.</dd><dt>Fine-tuned voice advice</dt><dd>{{status.voice_coach ? status.voice_coach.message : "Voice advice status is unavailable."}}</dd></dl><label for="videoDelay"><strong>Avatar video delay: {{videoDelayMs}} ms</strong></label><input id="videoDelay" type="range" min="0" max="1000" step="20" v-model.number="videoDelayMs" style="width:100%" aria-describedby="video-delay-help"><p v-if="!videoDelaySupported" role="status" class="notice">This browser does not support video delay. Use a current version of Chrome or Edge to adjust it.</p><p id="video-delay-help" class="fine-print">If the mouth moves before the sound, increase the delay. If it moves after the sound, reduce it. Set to 0 to turn buffering off. Replay Nora to compare.</p><p>Credentials are stored in the server configuration. Only the configuration status is shown here.</p><button class="button primary" :disabled="testingConnection" @click="testConnection">{{testingConnection?'Testing…':'Test conversation connection'}}</button></section></div>
   </div>

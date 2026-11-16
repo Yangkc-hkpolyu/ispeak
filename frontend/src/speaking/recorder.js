@@ -5,13 +5,18 @@ export class VoiceRecorder {
     stream.getTracks().forEach(track => track.stop())
   }
   async start({ path, onTranscript }) {
+    const generation = this.generation = (this.generation || 0) + 1
+    const checkActive = () => { if (generation !== this.generation) throw new Error('Recording cancelled.') }
     this.stopping = false
     let firstFrameTimer
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 }, video: false })
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 }, video: false })
+      if (generation !== this.generation) { stream.getTracks().forEach(track => track.stop()); checkActive() }
+      this.stream = stream
       this.context = new AudioContext({ sampleRate: 16000 })
       if (this.context.sampleRate !== 16000) throw new Error('The browser cannot provide 16 kHz live recording. Use Chrome or Edge.')
       await this.context.audioWorklet.addModule('/speaking-assets/pcm-worklet.js')
+      checkActive()
       const socket = new WebSocket(location.origin.replace(/^http/, 'ws') + path)
       this.socket = socket
       let readyResolve, readyReject, savedResolve, savedReject, result
@@ -36,6 +41,7 @@ export class VoiceRecorder {
         if (!result) { readyReject(new Error('Live transcription connection was closed.')); savedReject(new Error('Live transcription connection was closed.')) }
       }
       await ready
+      checkActive()
       this.source = this.context.createMediaStreamSource(this.stream)
       this.processor = new AudioWorkletNode(this.context, 'speaking-pcm')
       const firstFrame = new Promise((resolve, reject) => {
@@ -55,8 +61,11 @@ export class VoiceRecorder {
       this.processor.connect(this.silence)
       this.silence.connect(this.context.destination)
       await this.context.resume()
-      return await firstFrame
-    } catch (error) { this.abort(); throw error }
+      checkActive()
+      const started = await firstFrame
+      checkActive()
+      return started
+    } catch (error) { if (generation === this.generation) this.abort(); throw error }
     finally { clearTimeout(firstFrameTimer) }
   }
   async stop() {
@@ -76,6 +85,7 @@ export class VoiceRecorder {
     if (this.context && this.context.state !== 'closed') this.context.close().catch(() => {})
   }
   abort() {
+    this.generation = (this.generation || 0) + 1
     this.stopping = true
     this.release()
     this.socket?.close()

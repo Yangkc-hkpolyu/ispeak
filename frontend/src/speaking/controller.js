@@ -7,10 +7,12 @@ import VoiceCoach from './VoiceCoach.vue'
 import PrepChat from './PrepChat.vue'
 
 const recorder = new VoiceRecorder();
+function savedSessionId() { return localStorage.getItem('ispeak-session') || localStorage.getItem('polyspeak-session'); }
+function clearSavedSession() { localStorage.removeItem('ispeak-session'); localStorage.removeItem('polyspeak-session'); }
 function savedVideoDelay() {
   try {
     const previousKey = Object.keys(localStorage).find(key => key.endsWith('_video_delay_ms'));
-    const value = localStorage.getItem('ispeak_video_delay_ms') ?? (previousKey ? localStorage.getItem(previousKey) : null);
+    const value = localStorage.getItem('ispeak_video_delay_ms') ?? localStorage.getItem('polyspeak_video_delay_ms') ?? (previousKey ? localStorage.getItem(previousKey) : null);
     return value === null ? 180 : Math.max(0, Math.min(1000, Number(value) || 0));
   } catch (_) { return 180; }
 }
@@ -22,7 +24,7 @@ export default {
   name: 'SpeakingApp',
   components: { QuestionLibrary, FeedbackReport, VoiceCoach, PrepChat },
   data: () => ({
-    view: 'practice', reportDownloading: false, status: {}, library: { sets: [], sources: [], format_sources: [] }, history: [], session: null,
+    view: 'practice', reportDownloading: false, status: {}, library: { sets: [], sources: [], format_sources: [] }, history: [], session: null, practiceToken: 0,
     form: { exam: 'ielts', set_id: 'ielts-learning', mode: 'mock', section: 'full', candidate_name: '' },
     offlineMode: false, quickMode: false, busy: false, busyLabel: '', draft: '', notes: '', recordingResult: null,
     recording: false, startingRecording: false, transcribing: false, recordStarted: 0, recordDeadline: null, recordTimer: null,
@@ -69,7 +71,7 @@ export default {
       try { localStorage.setItem('ispeak_video_delay_ms', String(value)); } catch (_) {}
       this.live?.setPlayoutDelay(value);
     },
-    view(value) { if (value !== 'practice') this.disconnectAvatar(); else this.$nextTick(this.connectAvatar); },
+    view(value) { if (value !== 'practice') this.disconnectAvatar(); else if (this.session) this.$nextTick(this.connectAvatar); },
     'form.set_id'() { if (!this.sections.some(x => x.value === this.form.section)) this.form.section = 'full'; },
     videoVisible(value) { const idle = this.$refs.idleVideo; if (!idle) return; if (value) idle.pause(); else idle.play().catch(() => {}); },
   },
@@ -78,8 +80,8 @@ export default {
     try {
       [this.status, this.library] = await Promise.all([api('/api/speaking/status'), api('/api/speaking/library')]);
       if (!this.status.api_configured) { this.offlineMode = true; this.form.mode = 'coach'; }
-      const saved = localStorage.getItem('ispeak-session');
-      if (saved) { try { await this.restore(saved, false); } catch { localStorage.removeItem('ispeak-session'); } }
+      const saved = savedSessionId();
+      if (saved) { try { await this.restore(saved, false); } catch { clearSavedSession(); } }
       this.$nextTick(this.connectAvatar);
     } catch (error) { this.toast(error.message); }
   },
@@ -88,17 +90,20 @@ export default {
     async connectAvatar() {
       const video = this.$refs.avatarVideo;
       if (!video || this.view !== 'practice' || this.session?.report) return;
+      const token = this.practiceToken;
       this.liveConnecting = true;
       try {
         if (!this.live || this.live.video !== video || this.live.closed) {
           if (this.live) await this.live.close();
-          this.live = new LiveAvatar(video, this.liveEvent, { canvas: this.$refs.avatarCanvas, playoutDelayMs: this.videoDelayMs });
+          if (token !== this.practiceToken) return;
+          const live = new LiveAvatar(video, event => { if (this.live === live) this.liveEvent(event); }, { canvas: this.$refs.avatarCanvas, playoutDelayMs: this.videoDelayMs });
+          this.live = live;
         }
         await this.live.connect();
-      } catch (error) { this.liveConnected = false; this.videoVisible = false; this.avatarCaption = error.message; }
-      finally { this.liveConnecting = false; }
+      } catch (error) { if (token === this.practiceToken) { this.liveConnected = false; this.videoVisible = false; this.avatarCaption = error.message; } }
+      finally { if (token === this.practiceToken) this.liveConnecting = false; }
     },
-    disconnectAvatar() { this.liveConnected = false; this.videoVisible = false; if (this.live) this.live.close(); },
+    disconnectAvatar() { const live = this.live; this.live = null; this.liveConnected = false; this.liveConnecting = false; this.videoVisible = false; if (live) live.close(); },
     liveEvent(event) {
       if (event.type === 'connection.ready') { this.liveConnected = true; this.avatarCaption = 'Connected and ready to listen.'; }
       if (event.type === 'playback.ready') { this.videoVisible = true; this.playBlocked = false; }
@@ -131,12 +136,36 @@ export default {
       finally { this.busy = false; }
     },
     async restore(id, play = false) {
-      this.stopMedia(); this.view = 'practice'; this.takeSession(await api(`/api/speaking/sessions/${id}`));
+      const token = this.practiceToken;
+      this.stopMedia(); this.view = 'practice';
+      const value = await api(`/api/speaking/sessions/${id}`);
+      if (token !== this.practiceToken) return;
+      this.takeSession(value);
       if (this.currentQuestion?.phase === 'listening' && play) this.$nextTick(this.playQuestion);
       else if (this.isMock && this.currentQuestion?.phase === 'answering' && this.secondsLeft > 0) this.toast('The timer has resumed. Select Start recording to continue this question.');
     },
     async openHistory() { this.view = 'history'; try { this.history = await api('/api/speaking/sessions'); } catch (error) { this.toast(error.message); } },
-    resetPractice() { this.stopMedia(); this.session = null; this.draft = ''; this.notes = ''; this.recordingResult = null; this.showTranscript = false; localStorage.removeItem('ispeak-session'); this.view = 'practice'; this.$nextTick(this.connectAvatar); window.scrollTo({ top: 0, behavior: 'smooth' }); },
+    exitPractice() {
+      if (this.session && !this.session.report) {
+        const message = 'Exit practice and return home? Submitted answers stay in Practice history. Any unfinished answer or recording and preparation notes will be discarded. Requests already sent may finish saving in the background. Mock-test timers do not pause.';
+        if (!window.confirm(message)) return;
+      }
+      this.resetPractice();
+    },
+    resetPractice() {
+      // Ignore late requests from the old session, including automatic mock submission.
+      this.practiceToken++;
+      clearTimeout(this.recordTimer); this.recordTimer = null; recorder.abort();
+      this.stopMedia(); this.disconnectAvatar();
+      this.recording = false; this.startingRecording = false; this.transcribing = false;
+      this.busy = false; this.recordDeadline = null; this.autoRecordQuestionId = null;
+      this.session = null; this.draft = ''; this.notes = ''; this.recordingResult = null; this.showTranscript = false;
+      this.mediaFailed = false; this.avatarCaption = 'Ready when you are.';
+      clearTimeout(this.toastTimer); this.toastMessage = '';
+      clearSavedSession(); this.view = 'practice';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      this.$nextTick(() => this.$el.querySelector('#startButton')?.focus());
+    },
     chooseExcerpt(item) { if (this.recording || this.transcribing || this.busy) return; this.resetPractice(); this.form.exam = item.exam; this.form.mode = 'coach'; this.form.section = 'full'; this.form.set_id = item.id; },
     stopMedia() {
       this.mediaToken++; this.mediaBusy = false; this.playing = false; this.videoVisible = this.liveConnected; this.playBlocked = false; this.mediaQuestionId = null;
@@ -144,14 +173,18 @@ export default {
     },
     async playQuestion() {
       if (!this.currentQuestion || !this.canReplay) return;
-      const questionId = this.currentQuestion.id;
-      await this.playMedia(liveId => post(`/api/speaking/live/${liveId}/question/${this.session.id}`, { question_id: questionId }), questionId);
+      const questionId = this.currentQuestion.id, sessionId = this.session.id;
+      await this.playMedia(liveId => post(`/api/speaking/live/${liveId}/question/${sessionId}`, { question_id: questionId }), questionId);
     },
     async previewNora() { await this.playMedia(liveId => post(`/api/speaking/live/${liveId}/preview`, { text: "Hi, I'm Nora. Let's practise English together, one question at a time. Listen, speak, and discover what you can improve.", language: 'en' }), null); },
     async playMedia(create, questionId) {
-      await this.stopMedia(); const token = this.mediaToken; this.mediaQuestionId = questionId; this.mediaBusy = true; this.mediaFailed = false; this.mediaProgress = 10; this.mediaLabel = 'Connecting to live speech…';
+      const interrupted = this.stopMedia(), token = this.mediaToken;
+      await interrupted;
+      if (token !== this.mediaToken) return;
+      this.mediaQuestionId = questionId; this.mediaBusy = true; this.mediaFailed = false; this.mediaProgress = 10; this.mediaLabel = 'Connecting to live speech…';
       try {
         await this.connectAvatar();
+        if (token !== this.mediaToken) return;
         if (!this.liveConnected) throw new Error('The live avatar is not connected yet. Select Reconnect Nora.');
         this.mediaLabel = 'Waiting for live speech…';
         await this.live.speak(create);
@@ -165,10 +198,14 @@ export default {
       if (questionId && this.currentQuestion?.id === questionId && this.currentQuestion.phase === 'listening') await this.questionReady();
     },
     async questionReady() {
+      if (!this.currentQuestion) return;
+      const token = this.practiceToken;
       try {
-        this.takeSession(await post(this.path('/ready'), { question_id: this.currentQuestion.id }));
+        const value = await post(this.path('/ready'), { question_id: this.currentQuestion.id });
+        if (token !== this.practiceToken) return;
+        this.takeSession(value);
         if (this.isMock && this.currentQuestion.phase === 'ready') await this.beginRecording();
-      } catch (error) { this.toast(error.message); }
+      } catch (error) { if (token === this.practiceToken) this.toast(error.message); }
     },
     tick() {
       this.now = Date.now() + this.serverOffset;
@@ -178,48 +215,63 @@ export default {
     },
     async beginRecording() {
       if (!this.currentQuestion || this.recording || this.startingRecording || this.transcribing || this.busy) return;
+      const token = this.practiceToken;
       this.startingRecording = true;
       this.autoRecordQuestionId = this.currentQuestion.id;
       try {
         const question = this.currentQuestion;
         if (this.isMock && question.answer_until && this.secondsLeft <= 0) throw new Error('Time is up for this question. Skip it to continue.');
         this.recordingResult = null; this.draft = '';
-        this.recordStarted = await recorder.start({ path: this.path(`/stt?question_id=${encodeURIComponent(question.id)}`), onTranscript: text => { this.draft = text; } });
+        const started = await recorder.start({ path: this.path(`/stt?question_id=${encodeURIComponent(question.id)}`), onTranscript: text => { if (token === this.practiceToken) this.draft = text; } });
+        if (token !== this.practiceToken) return;
+        this.recordStarted = started;
         this.recordDeadline = this.isMock && question.answer_until ? question.answer_until * 1000 - this.serverOffset : this.recordStarted + (this.isMock ? question.answer_seconds : 120) * 1000;
         this.recording = true; this.now = Date.now() + this.serverOffset;
         this.recordTimer = setTimeout(this.stopRecording, Math.max(0, this.recordDeadline - Date.now()));
-        this.takeSession(await post(this.path('/begin-answer'), { question_id: question.id }));
-      } catch (error) { recorder.abort(); clearTimeout(this.recordTimer); this.recording = false; this.recordDeadline = null; this.toast(error.name === 'NotAllowedError' ? 'Microphone access was denied. Allow recording in your browser.' : error.message); }
-      finally { this.startingRecording = false; }
+        const value = await post(this.path('/begin-answer'), { question_id: question.id });
+        if (token === this.practiceToken) this.takeSession(value);
+      } catch (error) { if (token === this.practiceToken) { recorder.abort(); clearTimeout(this.recordTimer); this.recording = false; this.recordDeadline = null; this.toast(error.name === 'NotAllowedError' ? 'Microphone access was denied. Allow recording in your browser.' : error.message); } }
+      finally { if (token === this.practiceToken) this.startingRecording = false; }
     },
     async stopRecording() {
       if (!this.recording) return;
+      const token = this.practiceToken;
       this.recording = false; this.transcribing = true; clearTimeout(this.recordTimer); let submit = false;
       try {
-        this.recordingResult = await recorder.stop();
+        const result = await recorder.stop();
+        if (token !== this.practiceToken) return;
+        this.recordingResult = result;
         this.draft = this.recordingResult.text || ''; submit = this.isMock;
         if (this.recordingResult.transcription_error) this.toast('Your recording was saved, but transcription did not finish. This answer will be marked as having insufficient text evidence.');
-      } catch (error) { this.toast(error.message); }
-      finally { this.transcribing = false; }
-      if (submit) await this.sendAnswer();
+      } catch (error) { if (token === this.practiceToken) this.toast(error.message); }
+      finally { if (token === this.practiceToken) this.transcribing = false; }
+      if (submit && token === this.practiceToken) await this.sendAnswer();
     },
     async sendAnswer(skipped = false) {
       if (!this.currentQuestion || this.busy || this.recording || this.transcribing) return;
+      const token = this.practiceToken, sessionPath = this.path();
       this.stopMedia(); this.busy = true; this.busyLabel = skipped ? 'Saving this question and preparing the next' : 'Saving your answer and preparing the next question';
       try {
-        this.takeSession(await post(this.path('/answers'), { question_id: this.currentQuestion.id, answer: this.draft, audio_id: this.recordingResult?.id || null, skipped }));
+        const value = await post(sessionPath + '/answers', { question_id: this.currentQuestion.id, answer: this.draft, audio_id: this.recordingResult?.id || null, skipped });
+        if (token !== this.practiceToken) return;
+        this.takeSession(value);
         this.busy = false;
         if (this.currentQuestion) this.$nextTick(this.playQuestion);
         if (this.session.report_error) this.toast('Your answer was saved. Feedback is not ready yet; please try again.');
-      } catch (error) { this.toast(error.message); if (error.status === 409) this.takeSession(await api(this.path())); }
-      finally { this.busy = false; }
+      } catch (error) {
+        if (token !== this.practiceToken) return;
+        this.toast(error.message);
+        if (error.status === 409) { const value = await api(sessionPath); if (token === this.practiceToken) this.takeSession(value); }
+      }
+      finally { if (token === this.practiceToken) this.busy = false; }
     },
     skipQuestion() { this.sendAnswer(true); },
     async finishSession() {
       if (this.busy || this.recording || this.transcribing) return;
+      const token = this.practiceToken;
       this.stopMedia(); this.busy = true; this.busyLabel = 'Preparing feedback from your answers';
-      try { this.takeSession(await post(this.path('/finish'), {})); } catch (error) { this.toast(error.message); }
-      finally { this.busy = false; }
+      try { const value = await post(this.path('/finish'), {}); if (token === this.practiceToken) this.takeSession(value); } catch (error) { if (token === this.practiceToken) this.toast(error.message); }
+      finally { if (token === this.practiceToken) this.busy = false; }
     },
     recordingUrl(id) { return this.path(`/recordings/${id}`); },
     async playWord(turn, word) {

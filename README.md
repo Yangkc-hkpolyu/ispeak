@@ -12,7 +12,7 @@ Add a row for every member. Submit this source ZIP and a separate presentation s
 
 ## Features
 
-- Assessment reports provide a four-dimension radar, question-by-question evidence and revisions, and a directly downloadable PDF with a cover, contents and page numbers. PDF export uses saved feedback without running another assessment. See `docs/SPEAKING_REPORTS.md`.
+- The integrated assessment report provides a four-dimension radar, answer-by-answer evidence and revisions, and a downloadable PDF. Reports use saved feedback without another model call. See `docs/SPEAKING_REPORTS.md`.
 - Ask the tutor provides text-only, multi-turn preparation chat using the configured hosted Qwen model. Chat content is sent to that provider; refresh clears the conversation.
 - Guided practice and mock tests use Qwen real-time speech recognition, hosted examiner responses, EdgeTTS, a local Wav2Lip checkpoint and WebRTC avatar media.
 - The report estimates pace and pauses from recorded audio energy and ASR word count. A separate Qwen2.5-1.5B LoRA adapter generates optional advice from numeric metrics only, in a CPU subprocess. It is not a pronunciation assessment or official score.
@@ -57,7 +57,9 @@ Open http://127.0.0.1:8008/ and permit the microphone. In PyCharm, select `.venv
 
 The local LoRA experiment used 608 synthetic, rule-generated training examples over two epochs. In 38 synthetic tests, heuristics flagged 27 base outputs and 3 adapter outputs; a separate runtime filter rejected the latter three. The examples share a generator, training was revised after earlier observations, and these flags are not independent real-world accuracy rates. Human evaluation on diverse real recordings remains needed. See `experiments/voice-coach/README.md`, `evaluation_v2.json`, and `docs/SPEAKING_VOICE_COACH.md`.
 
-The current setup was automatically tested and a short cloud chat was verified. That does not prove accurate speech recognition, natural lip synchronization, or compatibility on a different machine. Review the recorded audio/video sync limitation above and test the demo on the presentation device.
+The earlier version passed a short cloud-chat check. After installing this package, verify the configured cloud account, speech recognition, playback, and audio/video sync on the presentation device.
+
+The public project package intentionally excludes personal practice records and recordings. A separately supplied private backup can be restored into a fresh project while the application is stopped. Back up an existing `speaking-runtime` first to avoid overwriting newer sessions. Old browser session and video-delay settings remain compatible with the renamed application.
 
 ## Third-party components
 

@@ -6,7 +6,7 @@ const path = require('node:path');
 const { chromium } = require('../frontend/node_modules/playwright');
 const root = path.resolve(__dirname, '..');
 const folder = path.join(root, 'speaking-runtime', 'qa');
-const origin = process.env.ispeak_TEST_URL || 'http://127.0.0.1:8008';
+const origin = process.env.ISPEAK_TEST_URL || process.env.POLYSPEAK_TEST_URL || 'http://127.0.0.1:8008';
 
 (async () => {
   const browser = await chromium.launch({headless:true, channel:'msedge'});

@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { chromium } = require('../frontend/node_modules/playwright');
-const url = process.env.ispeak_TEST_URL || 'http://127.0.0.1:8009';
+const url = process.env.ISPEAK_TEST_URL || process.env.POLYSPEAK_TEST_URL || 'http://127.0.0.1:8009';
 
 (async () => {
   const browser = await chromium.launch({headless:true, channel:'msedge', args:[

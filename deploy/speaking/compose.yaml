@@ -44,6 +44,10 @@ services:
       - tls_data:/data
       - tls_config:/config
 volumes:
+  # Keep the previous volume names so a rename does not hide existing records.
   runtime:
+    name: polyspeak_runtime
   tls_data:
+    name: polyspeak_tls_data
   tls_config:
+    name: polyspeak_tls_config
