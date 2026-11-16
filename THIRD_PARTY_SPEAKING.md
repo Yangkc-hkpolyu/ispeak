@@ -1,7 +1,7 @@
 # Sources and third-party components
 
 This is an authorized local copy of the user-provided PolyInterview application,
-adapted into the PolySpeak speaking practice product. The untouched source of
+adapted into the ispeak speaking practice product. The untouched source of
 the original application remains on C:. The speaking product uses its copied
 Vue 2 toolchain and the existing Qwen speech / Wav2Lip approach. The additional
 speaking state machine, task bank, feedback controls and interface are authored
@@ -51,3 +51,6 @@ identify exam formats; this project is not an official test provider.
 Hosted services: Qwen text, ASR and TTS from Alibaba Cloud Model Studio; optional
 Azure Speech pronunciation assessment. Service accounts and credentials are not
 distributed with the source package. Other dependencies retain their own licenses.
+# Feedback visualization and report generation
+
+The report radar geometry and expandable feedback layout adapt the user-provided PolyInterview feedback components. The PDF section pipeline and `backend/speaking/reporting/indexed_doc_template.py` adapt PolyInterview's ReportLab report implementation. ispeak supplies its own speaking-session data adapter and retains raw practice scores and explicit missing-evidence states. No original PolyInterview files are modified.

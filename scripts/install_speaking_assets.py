@@ -19,9 +19,19 @@ def digest_file(path):
 def install(archive, manifest):
     if digest_file(archive) != manifest['asset_archive_sha256']:
         raise ValueError('Asset archive checksum mismatch; no files were installed.')
-    prefix = 'COMP4431_PolySpeak/speaking-models/'
     destination = (ROOT / 'speaking-models').resolve()
     with zipfile.ZipFile(archive) as package:
+        # Older verified releases can have a different outer project-folder name.
+        # Resolve that wrapper from the archive, while keeping the pinned checksum
+        # and every destination/path validation below.
+        marker = '/speaking-models/'
+        entries = [entry for entry in package.infolist() if not entry.is_dir()]
+        prefixes = {entry.filename.split(marker, 1)[0] + marker for entry in entries if marker in entry.filename}
+        if len(prefixes) != 1 or any(marker not in entry.filename for entry in entries):
+            raise ValueError('Archive must contain one model-assets directory.')
+        prefix = next(iter(prefixes))
+        if PurePosixPath(prefix).is_absolute() or '..' in PurePosixPath(prefix).parts or '\\' in prefix:
+            raise ValueError('Invalid model-assets archive root.')
         files = []
         seen = set()
         for entry in package.infolist():
@@ -71,8 +81,13 @@ def main():
             if not shutil.which('gh'):
                 parser.error('Download the ZIP from the GitHub Release, then use --archive PATH. See README.md.')
             archive.parent.mkdir(parents=True, exist_ok=True)
-            subprocess.run(['gh', 'release', 'download', manifest['release_tag'], '--repo', manifest['repository'],
-                            '--pattern', manifest['asset_archive'], '--dir', str(archive.parent)], check=True)
+            # Numeric repository and asset IDs survive a repository/brand rename.
+            temporary = archive.with_name(archive.name + '.downloading')
+            endpoint = f"repositories/{manifest['repository_id']}/releases/assets/{manifest['asset_id']}"
+            with temporary.open('wb') as output:
+                subprocess.run(['gh', 'api', endpoint, '--header', 'Accept: application/octet-stream'],
+                               stdout=output, check=True)
+            temporary.replace(archive)
     install(archive.resolve(), manifest)
 
 

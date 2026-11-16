@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { chromium } = require('../frontend/node_modules/playwright');
-const url = process.env.POLYSPEAK_TEST_URL || 'http://127.0.0.1:8009';
+const url = process.env.ispeak_TEST_URL || 'http://127.0.0.1:8009';
 
 (async () => {
   const browser = await chromium.launch({headless:true, channel:'msedge', args:[
@@ -17,7 +17,7 @@ const url = process.env.POLYSPEAK_TEST_URL || 'http://127.0.0.1:8009';
     }});
     assert.equal(response.status(),200);
     const session = await response.json();
-    await page.addInitScript(id => localStorage.setItem('polyspeak-session',id), session.id);
+    await page.addInitScript(id => localStorage.setItem('ispeak-session',id), session.id);
     await page.route('**/api/speaking/live/offer', r => r.fulfill({status:503,contentType:'application/json',body:JSON.stringify({detail:'Avatar paused for timer regression check.'})}));
     let attempts=0, firstPCM=0, finished=0;
     await page.routeWebSocket('**/stt?*', socket => {

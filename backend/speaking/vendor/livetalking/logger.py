@@ -1,2 +1,2 @@
 import logging
-logger = logging.getLogger("polyspeak.livetalking")
+logger = logging.getLogger("ispeak.livetalking")

@@ -14,6 +14,7 @@ from .avatar import AvatarRenderer
 from .bank import SOURCES, catalog
 from .config import ROOT, load_settings
 from .consult import consult_router
+from .reporting.routes import report_router
 from .engine import SpeakingEngine
 from .errors import public_error_message
 from .media import MediaManager
@@ -56,12 +57,13 @@ def create_app(settings=None, provider=None, speech=None, pronunciation=None, cl
             await asyncio.gather(*media.tasks, return_exceptions=True)
         media.executor.shutdown(wait=False, cancel_futures=True)
 
-    app = FastAPI(title="PolySpeak · Speaking Practice", version="3.0.0", lifespan=lifespan)
+    app = FastAPI(title="ispeak · Speaking Practice", version="3.0.0", lifespan=lifespan)
     app.state.engine, app.state.media = engine, media
     app.state.live = live
     app.state.voice_coach = voice_coach
     app.include_router(live_router(live, store, engine))
     app.include_router(consult_router(provider, settings))
+    app.include_router(report_router(store, engine))
 
     @app.websocket("/api/speaking/sessions/{session_id}/stt")
     async def stt(websocket: WebSocket, session_id: str, question_id: str):
@@ -97,7 +99,7 @@ def create_app(settings=None, provider=None, speech=None, pronunciation=None, cl
     @app.get("/api/speaking/status")
     async def status():
         output = settings.tts_profile("en")
-        return {"name": "PolySpeak", "api_configured": bool(settings.api_key), "chat_model": settings.chat_model, "asr_model": settings.realtime_asr_model, "avatar_available": settings.model_path.is_file() and (settings.avatar_directory / "avatar.json").is_file(), "pronunciation_configured": bool(settings.azure_key), "model_finetuned": False, "voice_coach": voice_coach.status(), "format_version": "TOEFL 2026 / IELTS Speaking", "speech_input": "Qwen realtime WebSocket ASR", "speech_output": output["model"], "speech_provider": output["provider"], "speech_voice": output["voice"], "speech_language": output["language"], "avatar": "Nora · PolyInterview LiveTalking", "avatar_pipeline": "livetalking_webrtc", "original_project_modified": False}
+        return {"name": "ispeak", "api_configured": bool(settings.api_key), "chat_model": settings.chat_model, "asr_model": settings.realtime_asr_model, "avatar_available": settings.model_path.is_file() and (settings.avatar_directory / "avatar.json").is_file(), "pronunciation_configured": bool(settings.azure_key), "model_finetuned": False, "voice_coach": voice_coach.status(), "format_version": "TOEFL 2026 / IELTS Speaking", "speech_input": "Qwen realtime WebSocket ASR", "speech_output": output["model"], "speech_provider": output["provider"], "speech_voice": output["voice"], "speech_language": output["language"], "avatar": "Nora · PolyInterview LiveTalking", "avatar_pipeline": "livetalking_webrtc", "original_project_modified": False}
 
     @app.get("/api/speaking/library")
     async def library():
@@ -253,7 +255,7 @@ def create_app(settings=None, provider=None, speech=None, pronunciation=None, cl
         if not current["report"]:
             raise HTTPException(409, "Feedback has not been generated yet.")
         payload = {"created_at": current["created_at"], "setup": current["setup"], "set_title": current["set_title"], "report": engine.public(current)["report"], "turns": current["turns"]}
-        return Response(json.dumps(payload, ensure_ascii=False, indent=2), media_type="application/json", headers={"Content-Disposition": 'attachment; filename="polyspeak-feedback.json"'})
+        return Response(json.dumps(payload, ensure_ascii=False, indent=2), media_type="application/json", headers={"Content-Disposition": 'attachment; filename="ispeak-feedback.json"'})
 
     app.mount("/media", StaticFiles(directory=settings.runtime / "media"), name="media")
     app.mount("/speaking-assets", StaticFiles(directory=ROOT / "backend/speaking/assets"), name="assets")

@@ -1,4 +1,4 @@
-# PolySpeak Voice Check — fine-tuning experiment
+# ispeak Voice Check — fine-tuning experiment
 
 This is an experimental local QLoRA adapter for Qwen2.5-1.5B-Instruct. It generates short English practice advice from structured voice-check metrics; it does not receive recordings or transcripts and does not assess pronunciation or intelligibility.
 

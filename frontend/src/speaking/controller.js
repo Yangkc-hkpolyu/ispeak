@@ -2,14 +2,15 @@ import { VoiceRecorder } from './recorder'
 import { LiveAvatar } from './live-avatar'
 import { api, post } from './api'
 import QuestionLibrary from './QuestionLibrary.vue'
-import LayeredReport from './LayeredReport.vue'
+import FeedbackReport from './FeedbackReport.vue'
 import VoiceCoach from './VoiceCoach.vue'
 import PrepChat from './PrepChat.vue'
 
 const recorder = new VoiceRecorder();
 function savedVideoDelay() {
   try {
-    const value = localStorage.getItem('polyspeak_video_delay_ms');
+    const previousKey = Object.keys(localStorage).find(key => key.endsWith('_video_delay_ms'));
+    const value = localStorage.getItem('ispeak_video_delay_ms') ?? (previousKey ? localStorage.getItem(previousKey) : null);
     return value === null ? 180 : Math.max(0, Math.min(1000, Number(value) || 0));
   } catch (_) { return 180; }
 }
@@ -19,9 +20,9 @@ const sections = { ielts: [{ value: 'full', label: 'Full test · Parts 1–3' },
 
 export default {
   name: 'SpeakingApp',
-  components: { QuestionLibrary, LayeredReport, VoiceCoach, PrepChat },
+  components: { QuestionLibrary, FeedbackReport, VoiceCoach, PrepChat },
   data: () => ({
-    view: 'practice', status: {}, library: { sets: [], sources: [], format_sources: [] }, history: [], session: null,
+    view: 'practice', reportDownloading: false, status: {}, library: { sets: [], sources: [], format_sources: [] }, history: [], session: null,
     form: { exam: 'ielts', set_id: 'ielts-learning', mode: 'mock', section: 'full', candidate_name: '' },
     offlineMode: false, quickMode: false, busy: false, busyLabel: '', draft: '', notes: '', recordingResult: null,
     recording: false, startingRecording: false, transcribing: false, recordStarted: 0, recordDeadline: null, recordTimer: null,
@@ -65,7 +66,7 @@ export default {
   },
   watch: {
     videoDelayMs(value) {
-      try { localStorage.setItem('polyspeak_video_delay_ms', String(value)); } catch (_) {}
+      try { localStorage.setItem('ispeak_video_delay_ms', String(value)); } catch (_) {}
       this.live?.setPlayoutDelay(value);
     },
     view(value) { if (value !== 'practice') this.disconnectAvatar(); else this.$nextTick(this.connectAvatar); },
@@ -77,8 +78,8 @@ export default {
     try {
       [this.status, this.library] = await Promise.all([api('/api/speaking/status'), api('/api/speaking/library')]);
       if (!this.status.api_configured) { this.offlineMode = true; this.form.mode = 'coach'; }
-      const saved = localStorage.getItem('polyspeak-session');
-      if (saved) { try { await this.restore(saved, false); } catch { localStorage.removeItem('polyspeak-session'); } }
+      const saved = localStorage.getItem('ispeak-session');
+      if (saved) { try { await this.restore(saved, false); } catch { localStorage.removeItem('ispeak-session'); } }
       this.$nextTick(this.connectAvatar);
     } catch (error) { this.toast(error.message); }
   },
@@ -116,7 +117,7 @@ export default {
     takeSession(value) {
       const changed = this.currentQuestion?.id !== value.current_question?.id;
       this.session = value; this.serverOffset = value.server_time * 1000 - Date.now(); this.now = Date.now() + this.serverOffset;
-      localStorage.setItem('polyspeak-session', value.id);
+      localStorage.setItem('ispeak-session', value.id);
       if (changed) { this.draft = ''; this.notes = ''; this.recordingResult = null; this.mediaFailed = false; this.recordDeadline = null; this.autoRecordQuestionId = null; }
       if (value.report) { this.stopMedia(); this.disconnectAvatar(); }
     },
@@ -135,7 +136,7 @@ export default {
       else if (this.isMock && this.currentQuestion?.phase === 'answering' && this.secondsLeft > 0) this.toast('The timer has resumed. Select Start recording to continue this question.');
     },
     async openHistory() { this.view = 'history'; try { this.history = await api('/api/speaking/sessions'); } catch (error) { this.toast(error.message); } },
-    resetPractice() { this.stopMedia(); this.session = null; this.draft = ''; this.notes = ''; this.recordingResult = null; this.showTranscript = false; localStorage.removeItem('polyspeak-session'); this.view = 'practice'; this.$nextTick(this.connectAvatar); window.scrollTo({ top: 0, behavior: 'smooth' }); },
+    resetPractice() { this.stopMedia(); this.session = null; this.draft = ''; this.notes = ''; this.recordingResult = null; this.showTranscript = false; localStorage.removeItem('ispeak-session'); this.view = 'practice'; this.$nextTick(this.connectAvatar); window.scrollTo({ top: 0, behavior: 'smooth' }); },
     chooseExcerpt(item) { if (this.recording || this.transcribing || this.busy) return; this.resetPractice(); this.form.exam = item.exam; this.form.mode = 'coach'; this.form.section = 'full'; this.form.set_id = item.id; },
     stopMedia() {
       this.mediaToken++; this.mediaBusy = false; this.playing = false; this.videoVisible = this.liveConnected; this.playBlocked = false; this.mediaQuestionId = null;
@@ -225,6 +226,26 @@ export default {
       const ref = this.$refs['audio-' + turn.id], player = Array.isArray(ref) ? ref[0] : ref;
       if (!player) return;
       try { player.currentTime = Math.max(0, word.offset_seconds - .15); await player.play(); } catch { this.toast('Load the audio using the recording player, then select a word to replay it.'); }
+    },
+    async downloadPdf() {
+      if (this.reportDownloading || !this.session?.report) return;
+      const sessionId = this.session.id;
+      this.reportDownloading = true;
+      try {
+        const response = await fetch(`/api/speaking/sessions/${encodeURIComponent(sessionId)}/report.pdf`);
+        if (!response.ok) {
+          let detail; try { detail = (await response.json()).detail; } catch (_) {}
+          throw new Error(typeof detail === 'string' ? detail : 'The PDF could not be generated. Please try again.');
+        }
+        if (!(response.headers.get('content-type') || '').includes('application/pdf')) throw new Error('The server did not return a PDF report.');
+        const blob = await response.blob();
+        if (this.session?.id !== sessionId) return;
+        const url = URL.createObjectURL(blob), link = document.createElement('a');
+        link.href = url; link.download = 'ispeak-speaking-report.pdf';
+        document.body.appendChild(link); link.click(); link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (error) { this.toast(error.message); }
+      finally { this.reportDownloading = false; }
     },
     exportReport() { window.location.href = this.path('/export'); },
     printReport() {

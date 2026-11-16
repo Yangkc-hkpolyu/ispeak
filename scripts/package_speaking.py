@@ -10,10 +10,10 @@ from backend.speaking.config import load_settings
 
 
 def main(include_assets=False):
-    output = ROOT / "output/COMP4431_PolySpeak_source.zip"
+    output = ROOT / "output/COMP4431_ispeak_source.zip"
     output.parent.mkdir(exist_ok=True)
     files = ["README.md", "THIRD_PARTY_SPEAKING.md", "requirements-speaking.txt", "speaking.env.example", "run-speaking.py", "start-speaking.bat", "speaking-models/source.json", "frontend/package.json", "frontend/package-lock.json", "frontend/vue.config.js", "frontend/babel.config.js", "frontend/public/speaking.html", "frontend/src/speaking-main.js", "frontend/scripts/speaking.cjs", "speaking-resources/manifest.json", "docs/SPEAKING_RESEARCH.md", "docs/SPEAKING_AVATAR.md", "docs/SPEAKING_TESTING.md"]
-    files.extend(["requirements-voice-coach.txt", "scripts/setup_voice_coach.py", "scripts/verify_voice_coach_ui.cjs", "docs/SPEAKING_VOICE_COACH.md"])
+    files.extend(["requirements-voice-coach.txt", "scripts/setup_voice_coach.py", "scripts/verify_voice_coach_ui.cjs", "docs/SPEAKING_VOICE_COACH.md", "docs/SPEAKING_REPORTS.md"])
     for directory in ("backend/speaking", "frontend/src/speaking", "frontend/dist-speaking", "speaking-tests", "experiments/voice-coach"):
         files.extend(p.relative_to(ROOT).as_posix() for p in (ROOT / directory).rglob("*") if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc")
     files.append("docs/SPEAKING_QUESTION_BANK.md")
@@ -30,7 +30,7 @@ def main(include_assets=False):
             if not source.is_file():
                 raise RuntimeError("Missing source deliverable: " + name)
             archive_name = "README.md" if name == "README.md" else name
-            z.write(source, "COMP4431_PolySpeak/" + archive_name)
+            z.write(source, "COMP4431_ispeak/" + archive_name)
     with zipfile.ZipFile(output) as z:
         settings = load_settings()
         for name in z.namelist():
@@ -46,12 +46,12 @@ def main(include_assets=False):
         settings = load_settings()
         if not settings.model_path.is_file() or not (settings.avatar_directory / "avatar.json").is_file():
             raise RuntimeError("Prepare the model and dynamic avatar before packaging assets")
-        archive = ROOT / "output/COMP4431_PolySpeak_model_assets.zip"
+        archive = ROOT / "output/COMP4431_ispeak_model_assets.zip"
         asset_files = [(settings.model_path, "speaking-models/wav2lip.pth")]
         asset_files += [(p, "speaking-models/avatars/nora/" + p.relative_to(settings.avatar_directory).as_posix()) for p in settings.avatar_directory.rglob("*") if p.is_file() and p.suffix in (".json", ".png", ".jpg")]
         with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=3) as z:
             for source, relative in sorted(asset_files):
-                z.write(source, "COMP4431_PolySpeak/" + relative)
+                z.write(source, "COMP4431_ispeak/" + relative)
         with zipfile.ZipFile(archive) as z:
             assert z.testzip() is None
             print(f"Verified model/assets package: {len(z.namelist())} files, {archive.stat().st_size / 1024 ** 2:.2f} MB")

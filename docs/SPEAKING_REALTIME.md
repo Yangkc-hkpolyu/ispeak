@@ -56,7 +56,7 @@ Speech output defaults to EdgeTTS with `en-US-JennyNeural`, matching the origina
 PolyInterview Amy English configuration. Chinese requests select
 `zh-CN-XiaoxiaoNeural` separately; exam questions always use English. The original
 application has separate language ports and injects the selected voice per
-session. PolySpeak selects the voice per utterance within its existing service.
+session. ispeak selects the voice per utterance within its existing service.
 `SPEAKING_TTS_PROVIDER`, `SPEAKING_VOICE_EN`, and `SPEAKING_VOICE_ZH` apply to the
 live path as well as the compatibility renderer. A mismatched Edge voice locale
 is rejected, and provider failures never silently switch to another voice.

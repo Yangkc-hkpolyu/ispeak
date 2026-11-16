@@ -1,1 +1,1 @@
-"""PolySpeak: a local speaking practice product in the E: PolyInterview copy."""
+"""ispeak: a local speaking practice product in the E: PolyInterview copy."""

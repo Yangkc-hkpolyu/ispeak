@@ -93,7 +93,7 @@ Local JSON, WAV and annotated frame evidence is saved as
 
 The original Amy configuration uses EdgeTTS `en-US-JennyNeural` for English and
 `zh-CN-XiaoxiaoNeural` for Chinese, with separate language service ports and a
-per-session voice header. The previous PolySpeak live path bypassed its provider
+per-session voice header. The previous ispeak live path bypassed its provider
 setting and always used Qwen `Cherry` with `language_type=English`. Cherry is
 documented as multilingual, so this was not a call to a Chinese-only endpoint;
 it was a different provider/voice from the original English setup.
@@ -118,7 +118,7 @@ accent-quality comparison or a benchmark against the original running app.
 
 The protected PolyInterview configuration selects EdgeTTS with batch size 8.
 Its adapter collects the complete utterance before queueing audio. The earlier
-PolySpeak Qwen adapter forwarded each arrival immediately; it did not preserve
+ispeak Qwen adapter forwarded each arrival immediately; it did not preserve
 that buffering boundary. Core vendor scheduler, lip processing and WebRTC code
 otherwise match apart from imports. A deterministic test also reproduced a
 later silent batch overtaking a pending speech batch.
@@ -315,7 +315,7 @@ Browserslist data produces an age notice; that did not prevent compilation.
   a synthetic microphone and mocked ASR socket. A failed connection left the
   deadline unset; a subsequent 3.5-second setup delay left all 30 seconds intact.
   Recording stopped after 29,986 ms. This validates timing, not cloud ASR accuracy.
-  Run it against an isolated test server with `POLYSPEAK_TEST_URL` (default 8009).
+  Run it against an isolated test server with `ispeak_TEST_URL` (default 8009).
 - Desktop question-library navigation/filter/practice checks passed. Home and
   active practice screenshots were inspected at 1440 px; no new mobile work.
 - Browser receive statistics changed from VP8 / 11 keyframes to H.264 / 3

@@ -1,4 +1,4 @@
-name: polyspeak
+name: ispeak
 services:
   speaking:
     build:

@@ -1,6 +1,6 @@
 # 云端小组演示部署
 
-此配置部署当前 PolySpeak 口语平台的前端、FastAPI、SQLite、录音和本地口型模型。它不启动原项目的招聘、认证和 PostgreSQL 服务。本机仍可使用 `start-speaking.bat`，不需要 Docker。
+此配置部署当前 ispeak 口语平台的前端、FastAPI、SQLite、录音和本地口型模型。它不启动原项目的招聘、认证和 PostgreSQL 服务。本机仍可使用 `start-speaking.bat`，不需要 Docker。
 
 ## 当前状态
 
@@ -10,8 +10,8 @@
 
 使用带 NVIDIA GPU 的 Linux 服务器，安装兼容的驱动、Docker Compose 和 NVIDIA Container Toolkit。准备指向服务器的域名，并开放 TCP 80/443。浏览器录音需要可信 HTTPS；Caddy 为正确配置的域名申请证书。
 
-1. 上传最新 `COMP4431_PolySpeak_source.zip`，解压进入 `COMP4431_PolySpeak/`。
-2. 将 `COMP4431_PolySpeak_model_assets.zip` 解压到同一目录，提供权重和 `speaking-models/avatars/nora/` 动态素材。它们不包含在源码包。
+1. 上传最新 `COMP4431_ispeak_source.zip`，解压进入 `COMP4431_ispeak/`。
+2. 将 `COMP4431_ispeak_model_assets.zip` 解压到同一目录，提供权重和 `speaking-models/avatars/nora/` 动态素材。它们不包含在源码包。
 3. 如需本地打开官方 PDF，上传 `speaking-resources/official/`；不上传时仍可使用官方来源链接。
 4. 复制 `deploy/speaking/cloud.env.example` 为 `deploy/speaking/cloud.env`，填入域名、自己的 API Key 和演示密码哈希。不要上传原 `backend/.env` 或真实用户录音。
 5. 运行下方命令生成密码哈希，输入供组员使用的密码，将输出保存在单引号内：

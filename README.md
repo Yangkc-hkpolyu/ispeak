@@ -1,6 +1,6 @@
-# PolySpeak — IELTS / TOEFL speaking practice
+# ispeak — IELTS / TOEFL speaking practice
 
-PolySpeak is a domain-specific speaking-practice prototype with a cloud examiner, a talking avatar, a text-only preparation chat, practice reports, and optional local fine-tuned advice. It is not an official IELTS or TOEFL examiner.
+ispeak is a domain-specific speaking-practice prototype with a cloud examiner, a talking avatar, a text-only preparation chat, practice reports, and optional local fine-tuned advice. It is not an official IELTS or TOEFL examiner.
 
 ## Group members — complete before submission
 
@@ -12,6 +12,7 @@ Add a row for every member. Submit this source ZIP and a separate presentation s
 
 ## Features
 
+- Assessment reports provide a four-dimension radar, question-by-question evidence and revisions, and a directly downloadable PDF with a cover, contents and page numbers. PDF export uses saved feedback without running another assessment. See `docs/SPEAKING_REPORTS.md`.
 - Ask the tutor provides text-only, multi-turn preparation chat using the configured hosted Qwen model. Chat content is sent to that provider; refresh clears the conversation.
 - Guided practice and mock tests use Qwen real-time speech recognition, hosted examiner responses, EdgeTTS, a local Wav2Lip checkpoint and WebRTC avatar media.
 - The report estimates pace and pauses from recorded audio energy and ASR word count. A separate Qwen2.5-1.5B LoRA adapter generates optional advice from numeric metrics only, in a CPU subprocess. It is not a pronunciation assessment or official score.
@@ -21,17 +22,17 @@ Add a row for every member. Submit this source ZIP and a separate presentation s
 
 The supplied coursework ZIP contains local model weights and avatar assets, but deliberately excludes Python virtual environments, installed libraries, private keys and user recordings. A Git clone or GitHub source ZIP excludes the large runtime model and avatar files. The trained LoRA adapter is included under `experiments/voice-coach/adapter`.
 
-For a Git clone, download `COMP4431_PolySpeak_model_assets.zip` from the [v3.0.0 release](https://github.com/Yangkc-hkpolyu/polyspeak/releases/tag/v3.0.0). After installing the dependencies below, run this command with the actual downloaded archive path:
+For a Git clone, open this repository's Releases section, select v3.0.0, and download its model-assets ZIP. After installing the dependencies below, run this command with the actual downloaded archive path:
 
 ```powershell
-.\.venv\Scripts\python.exe -s scripts/install_speaking_assets.py --archive "E:\Downloads\COMP4431_PolySpeak_model_assets.zip"
+.\.venv\Scripts\python.exe -s scripts/install_speaking_assets.py --archive "E:\Downloads\COMP4431_ispeak_model_assets.zip"
 ```
 
 The installer checks the archive and model checksums before extracting the avatar assets. Skip this step when using the coursework ZIP with its existing model files.
 
 Install dependencies before launching. The local model's isolated inference packages must also be installed. Use Windows x64, Python 3.12, a compatible NVIDIA GPU/driver and internet access. A microphone is required for spoken practice.
 
-Open PowerShell inside the extracted `PolySpeak` directory. Check `python --version` is 3.12, or use the full path of a Python 3.12 executable in place of `python` below.
+Open PowerShell inside the extracted `ispeak` directory. Check `python --version` is 3.12, or use the full path of a Python 3.12 executable in place of `python` below.
 
 ```powershell
 python -m venv .venv

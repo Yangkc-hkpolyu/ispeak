@@ -41,7 +41,7 @@ def main():
                            "vendored": destination.relative_to(ROOT).as_posix(),
                            "vendored_sha256": hashlib.sha256(destination.read_bytes()).hexdigest()})
     (TARGET / "__init__.py").write_text('"""PolyInterview LiveTalking with package imports and a hosted TTS adapter."""\n', encoding="utf-8")
-    (TARGET / "logger.py").write_text('import logging\nlogger = logging.getLogger("polyspeak.livetalking")\n', encoding="utf-8")
+    (TARGET / "logger.py").write_text('import logging\nlogger = logging.getLogger("ispeak.livetalking")\n', encoding="utf-8")
     evaluation_source = ROOT / "backend/services/final_evaluation_service.py"
     tree = ast.parse(evaluation_source.read_text(encoding="utf-8-sig"))
     original_class = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "FinalEvaluationService")

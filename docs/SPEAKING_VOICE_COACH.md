@@ -31,7 +31,7 @@ speech or a validated pronunciation assessment.
 
 ## Setup
 
-The complete `PolySpeak-Coursework-With-Models` folder supplied on 2026-11-13
+The complete `ispeak-Coursework-With-Models` folder supplied on 2026-11-13
 contains the trained adapter and the base model. Both are installed on this
 development computer. The trained adapter is now included in this repository at
 `experiments/voice-coach/adapter`; the setup script downloads the larger base
@@ -41,7 +41,7 @@ SHA-256 `911120929075507066c461d4f00a2a9b08b15792cb8c4a0d00bdcf632ab7792c`.
 The base model SHA-256 is
 `dd924a11b4c220f385b51ffa522daea7c9f3d850e31b162bb5661df483c6d3ee`.
 
-Run using the same Python that runs PolySpeak:
+Run using the same Python that runs ispeak:
 
 ```powershell
 .\.venv\Scripts\python.exe -s scripts/setup_voice_coach.py

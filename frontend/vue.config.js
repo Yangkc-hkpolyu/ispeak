@@ -52,7 +52,7 @@ function isLegacyProductRoute(requestPath = '') {
 
 module.exports = defineConfig({
   outputDir: speakingOnly ? 'dist-speaking' : 'dist',
-  pages: speakingOnly ? { index: { entry: 'src/speaking-main.js', template: 'public/speaking.html', filename: 'index.html', title: 'PolySpeak · IELTS & TOEFL' } } : {
+  pages: speakingOnly ? { index: { entry: 'src/speaking-main.js', template: 'public/speaking.html', filename: 'index.html', title: 'ispeak · IELTS & TOEFL' } } : {
     index: {
       entry: 'src/main.js',
       template: 'public/index.html',
