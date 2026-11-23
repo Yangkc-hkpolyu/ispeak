@@ -20,6 +20,8 @@ Add a row for every member. Submit this source ZIP and a separate presentation s
 
 ## Run on Windows
 
+If you already have the **Group 9 Windows standalone build** named `ispeak-final-20261118`, follow the [standalone voice update](updates/ispeak-final-20261118/README.md) to use Jenny in both display modes and enable the local fine-tuned recording feedback. The instructions below apply to the source checkout.
+
 The supplied coursework ZIP contains local model weights and avatar assets, but deliberately excludes Python virtual environments, installed libraries, private keys and user recordings. A Git clone or GitHub source ZIP excludes the large runtime model and avatar files. The trained LoRA adapter is included under `experiments/voice-coach/adapter`.
 
 For a Git clone, open this repository's Releases section, select v3.0.0, and download its model-assets ZIP. After installing the dependencies below, run this command with the actual downloaded archive path:
